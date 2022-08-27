@@ -1,0 +1,156 @@
+= Miod v4 language spec
+
+[source]
+----
+
+# automatically imported everything from 'miod' module for
+# basic language stuff like None, String types etc
+importall miod
+
+# Double
+const pi = 3.14
+# Float
+const pi_f = 3.14f
+# Int
+const count = 7
+# Long
+const count_long = 7L
+
+const name = "abc"
+
+# ancestor for boxed types like Int, Long, Float, Double, Flags
+# primitive values are passed by copy and boxed if used in generics
+pub baseclass Primitive
+endclass
+
+
+# abstract methods are declared among class fields
+pub baseclass Any
+    # with default value
+    some_private: Int = 3
+    pub some_inherited: Int
+    pub const some_const = "aaa"
+
+    pub proc hash(self): Int
+    pub proc as_string(self): String
+endclass
+
+# final class
+class AnyBase(Any)
+endclass
+
+proc AnyBase::hash(self): Int, override
+    some_private + some_inherited
+end
+
+proc AnyBase::new(): Any
+    AnyBase{ some_private: 3, some_inherited: 4}
+end
+
+
+pub baseclass Runnable
+pub proc run(self)
+end
+
+# anonymous class def and instantiation shortcut
+proc myproc()
+    var c = 3
+
+    # for abstract base classes with single method
+    # captured vars are copied into instance vars
+    let a = proc Runnable::run(self)
+        for i in range(c)
+            let h = hex(i)
+            print("$h\n")
+        endfor
+    end
+
+    inc(c)
+    # captured 'c' in 'a' is still 3, because it was copied
+    # class instances are the only reference types
+end
+
+# max 64 flags, because of underlying 64 bit integer
+flags Access
+    read,
+    write,
+endflags
+
+const rw = Access.read | Acces.write
+
+union Optional$<T>
+    T,
+    None
+endunion
+
+baseclass AbstractEnum$<E>
+proc from_string(s:String): E
+proc as_string(self): String
+proc index(self): i32
+endclass
+
+enum Mixed
+  one,
+  two,
+  three,
+  max
+endenum
+
+
+baseclass AbstractUnion
+prop value: Any, set(set_value)
+proc set(self, new_value: Any)
+endclass
+
+# hidden generated code:
+class FileResult(AbstractUnion)
+endclass
+
+proc FileResult::set(self, new_value: Any)
+    switch class_of(new_value)
+    case f: File 
+        value = f
+    endcase
+    case e: IoError
+        value = e
+    endcase
+    else
+        let name = class_name(new_value)
+        panic("cannot set union value, class $name is not in union FileResult")
+    endswitch
+end
+  
+union FileResult
+  File,
+  IoError
+endunion
+
+proc open_file(fn: String): FileResult
+
+@_lang_item
+class None
+endclass
+
+# compile-time type, will fail if ItemClass is a union
+union IteratorResult$<ItemClass>
+    ItemClass,
+    None
+endunion
+
+baseclass Iterator$<ItemClass>
+    proc next(self): IteratorResult$<ItemClass>
+
+endclass
+
+
+class Immutable
+prop x: Int, get()
+prop y: Int, get()
+endclass
+
+enum None
+  none
+endenum
+
+pub const none = None.none
+----
