@@ -1,7 +1,99 @@
 = Miod v4 language spec
 
+:toc:
+
+
+== Types
+Values types (PrimitiveType), automatically converted to references in generic
+classes/procs:
+
+    - Int -- 32-bit integer
+    - Long -- 64-bit integer
+    - Float -- 32-bit float
+    - Double -- 64-bit float
+    - Bool -- boolean type, true/false
+
 [source]
 ----
+@_lang_item
+baseclass PrimitiveType
+endclass
+----
+
+== Base class default methods
+
+=== as_string(): String
+In debug mode (debug build tag) default implementation displays all fields.
+In release mode only the class name and pointer value is displayed.
+
+=== hash_value(): Int
+Returns pointer value (or the lowest 32 bits)
+
+=== equals(): Bool
+Returns pointer value comparison.
+
+[source]
+----
+@_lang_item
+baseclass Base
+proc as_string(): String
+proc hash_value(): Int
+proc equals(other: Base): Bool
+endclass
+----
+
+
+
+== Metadata
+
+[source]
+----
+class _lang_item
+endclass
+
+@_lang_item
+class None
+endclass
+
+const none = None {}
+
+# Buld tag example: _reflect_fields annotation is applied only if 'debug' tag
+# is specified during the compilation.
+# The class is not compiled at all if 'windows' build tag is not set.
+@@debug
+@_reflect_fields
+@@windows
+class WindowsImpl(ImplBase)
+endclass
+
+----
+
+@class_name -- annotation, applies to the following class, import, proc, const,
+let, var
+
+@@build_tag -- affect the next element to be semantically effective only if the
+build tag is set, e.g. affects only the next annotation or class/import/proc etc.
+
+== Magic annotations
+
+@_lang_item -- denotes a language-related feature, possible automatic treatment
+of the type by the compiler.
+
+@_equals -- generates 'equals' method with field by field comparison (calling
+'equals' method for each field).
+
+@_hash -- generates hash by calling 'hash' for each field, stores the result
+for consecutive calls.
+
+@_data -- all fields become read-only properties, properties are always public,
+generates 'equals' and 'hash'.
+
+
+== Code samples
+
+[source]
+----
+
 
 # automatically imported everything from 'miod' module for
 # basic language stuff like None, String types etc
