@@ -13,6 +13,9 @@ classes/procs:
     - Double -- 64-bit float
     - Bool -- boolean type, true/false
 
+Aggregated values are created with a *class* type, which is a reference with
+data fields and methods.
+
 [source]
 ----
 @_lang_item
@@ -20,19 +23,84 @@ baseclass PrimitiveType
 endclass
 ----
 
-== Base class default methods
 
-=== as_string(): String
+== Class type
+A class is a structure with data fields and associated methods, that supports
+inheritance and polymorphism with virtual methods.
+
+A class that can have virtual methods and be inherited from is declared with
+the *baseclass* keyword. The virtual methods are introduced in the fields block.
+If the class provides default implementation, those methods must be declared with
+the *implemented* keyword.
+
+Special argument *self* does not require type declaration, and is required even
+if it's unused.
+
+Methods without *self* are static and are called with _ClassName::method_name_
+form.
+
+A final class is declared with the *class* keyword, it cannot introduce new
+virtual methods, and cannot be inherited from.
+
+An instance is constructed with field names paired with values between curly
+braces. See examples below.
+
+[source]
+----
+baseclass AbstractClass
+  pub proc abstract_method(self)
+  proc virtual_method_with_default_impl(self): Bool, implemented
+
+  prop x: Int
+  var y: Double
+  pub var z: String
+endclass
+
+proc AbstractClass::virtual_method_with_default_impl(self): Bool
+  return true
+end
+
+class Inherited(AbstractClass)
+endclass
+
+proc Inherited::abstract_method(self), override
+end
+
+proc Inherited::new(): Inherited
+    return Inherited { x: 3, y: 4.0, z: "abc" }
+end
+----
+
+=== Properties
+Properties are public class fields which can have private setters and getters,
+and exported through RTTI for reflection.
+
+Class's methods do not use getters/setters when they assign or read the properties.
+
+=== Fields
+Class data fields can be private and public. Private fields are accessible only
+within the same module.
+
+=== Methods
+Class can have _static_, normal, and virtual methods. Static methods only use a
+namespace of a class. Virtual methods are declared in a _base_ class
+(*_baseclass_* keyword), and implemented with an *override* keyword in the
+proc declaration.
+
+
+=== Base class default methods
+
+==== as_string(): String
 In debug mode (debug build tag) default implementation displays all fields.
 In release mode only the class name and pointer value is displayed.
 
-=== hash_value(): Int
+==== hash_value(): Int
 Returns pointer value (or the lowest 32 bits)
 
-=== equals(): Bool
+==== equals(): Bool
 Returns pointer value comparison.
 
-=== id(): Long
+==== id(): Long
 Returns the pointer value.
 
 [source]
@@ -43,13 +111,16 @@ proc as_string(): String
 proc hash_value(): Int
 proc equals(other: Base): Bool
 endclass
+
+proc Base::id(): Long
 ----
 
-proc Base::retain<C>(self:C): C 
-proc Base::id(): Long
+== Metadata: annotations and build tags
 
+Annotations affect code generation and add metadata to a class.
 
-== Metadata
+Buld tags affect which annotations are enabled and which import, const, proc,
+class, union, enum declaration is compiled.
 
 [source]
 ----
@@ -95,17 +166,116 @@ generates 'equals' and 'hash'.
 
 @_atomic_rc -- atomic reference counter, required for classes used in multithreaded code.
 
+== Enum type
+Enum is a class with defined global instances. A new instance cannot be
+constructed, only the constants can be used.
+
+[source]
+----
+enum Day
+  today,
+  tomorrow,
+  yesterday
+endenum
+
+const today = Day::today
+
+proc is_it_today(day: Day): Bool
+  switch day
+    case today:
+        return True
+    endcase
+    else
+      return False
+  endswitch
+  return False
+end
+----
+
+== Union type
+A union type is a class instance which can hold only a specified class instance
+inside thus makes the programmer cover all possible classes.
+
+[source]
+----
+
+class Some!<V>
+prop value: V
+endclass
+
+class Error!<E>
+prop error: E
+endclass
+
+union Result
+  Some!<V>,
+  Error!<E>,
+  None,
+endunion
+
+proc as_string(o: Base): Result
+...
+
+proc do(o: Base)
+  let res = as_string(o)
+  # in case of union type non-covered cases trigger compilation error
+  # if the variable is just a Base class, then no such check is performed.
+  switch_class res
+    # case casts res to String here
+    case String print(res.length)
+    endcase
+    else
+      print("error")
+  endswitch
+end
+----
+
+== Generics
+Generics are implemented as syntactic sugar. All generic
+type parameters are not visible in runtime, and only one version of code
+is generated which operates on Base class instance type instead of concrete
+types. So it's a compile-time only feature to circumvent switch_class casts.
 
 == Memory management
-Reference types are managed by counters: autoincremented on copying and
+Reference types are managed by counters: autoincremented on copying, and
 decremented when go out of scope, and destroyed upon reaching zero.
 
-When a const instance is passed, it's counter is not affected.
+Arguments passed to a procedure are not autoincremented and must be released
+by the caller upon return.
 
-When a variable (*var*, *let*) is passed it's not incremented, and the future use in the code
-block is forbidden. To allow futher use, one must increment the counter with
-a *retain* method call. A *const* is autoincremented.
+A reference returned from a function call must be deincremented, it's done
+by the compiler. A returned reference is autoincremented by the compiler before
+exiting the proc body.
 
+== Constants
+A constant declared with a *const* keyword can only store a literal (string,
+integer, float) or enum.
+
+== Arguments
+Arguments cannot be assigned, treat argument names as declared with *let*.
+
+== Variables
+Only local (declared in a proc body) variables are supported:
+
+    - *let* declares a variable which can be assigned once;
+    - *var* declares a variable which can be reassigned.
+
+== Name mangling
+Generated C code encodes identifiers in the following way:
+
+    - 'miod_' + 'module-name' + '_class-name' + '_identifier'
+
+== Integration with C
+C procs can be called from Miod via *cproc* declarations:
+
+[source]
+----
+# cproc uses unmagled name if it's not a class method. A real C function name
+# can be specified via the annotation.
+@_cname { "my_sort_array" }
+cproc sort_array<C>(data: Array!<C>): Array!<C>
+
+----
 
 == Multithreading and data
 TBD
