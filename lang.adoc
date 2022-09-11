@@ -1,5 +1,5 @@
 = Miod v4 language spec
-
+(C) 2022
 :toc:
 
 
@@ -32,6 +32,9 @@ Returns pointer value (or the lowest 32 bits)
 === equals(): Bool
 Returns pointer value comparison.
 
+=== id(): Long
+Returns the pointer value.
+
 [source]
 ----
 @_lang_item
@@ -42,6 +45,8 @@ proc equals(other: Base): Bool
 endclass
 ----
 
+proc Base::retain<C>(self:C): C 
+proc Base::id(): Long
 
 
 == Metadata
@@ -88,6 +93,22 @@ for consecutive calls.
 @_data -- all fields become read-only properties, properties are always public,
 generates 'equals' and 'hash'.
 
+@_atomic_rc -- atomic reference counter, required for classes used in multithreaded code.
+
+
+== Memory management
+Reference types are managed by counters: autoincremented on copying and
+decremented when go out of scope, and destroyed upon reaching zero.
+
+When a const instance is passed, it's counter is not affected.
+
+When a variable (*var*, *let*) is passed it's not incremented, and the future use in the code
+block is forbidden. To allow futher use, one must increment the counter with
+a *retain* method call. A *const* is autoincremented.
+
+
+== Multithreading and data
+TBD
 
 == Code samples
 
