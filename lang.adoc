@@ -436,4 +436,34 @@ enum None
 endenum
 
 pub const none = None.none
+
+
+baseclass BaseUnion
+
+endclass
+
+union FileResult
+File,
+Error
+endunion
+
+
 ----
+
+== Possible simplification
+Generics, unions are syntactic sugar which do not exist at runtime.
+
+E.g.
+
+[source]
+----
+union FileResult
+File,
+Error
+endunion
+proc file_open(fn: String): FileResult
+
+# actually generates
+proc file_open(fn: String): Any
+----
+
