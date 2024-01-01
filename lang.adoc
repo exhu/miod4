@@ -1,5 +1,5 @@
 = Miod v4 language spec
-(C) 2022
+(C) 2022-2024
 :toc:
 
 
@@ -389,6 +389,7 @@ endclass
 class FileResult(AbstractUnion)
 endclass
 
+# this is actually bad, since panic on serialization is wrong
 proc FileResult::set(self, new_value: Any)
     switch class_of(new_value)
     case f: File 
@@ -438,32 +439,44 @@ endenum
 pub const none = None.none
 
 
-baseclass BaseUnion
-
-endclass
 
 union FileResult
 File,
 Error
 endunion
+
+
+baseclass BaseUnion
+prop possible_types: List, get()
+
+endclass
+
+class FileResultClass
+endclass
+
+let ClassOfFileResult = FileResultClass { possible_types:  [File, Error] }
 
 
 ----
 
 == Possible simplification
 Generics, unions are syntactic sugar which do not exist at runtime.
+To allow for more secure serialization/deserialization one should create
+a concrete implementation with checks.
 
 E.g.
 
 [source]
 ----
-union FileResult
+union FileResultValues
 File,
 Error
 endunion
-proc file_open(fn: String): FileResult
+proc file_open(fn: String): FileResultValues
 
 # actually generates
 proc file_open(fn: String): Any
+
+
 ----
 
